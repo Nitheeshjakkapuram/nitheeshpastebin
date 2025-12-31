@@ -13,6 +13,7 @@ import java.util.Map;
 public class PasteApiController {
 
     private final PasteService service;
+    private final String BASE_URL = "https://nitheeshpastebin-4.onrender.com"; // Change to your deployed URL
 
     public PasteApiController(PasteService service) {
         this.service = service;
@@ -21,8 +22,8 @@ public class PasteApiController {
     @PostMapping
     public ResponseEntity<?> create(@RequestBody Map<String, Object> body) {
         String content = (String) body.get("content");
-        Integer ttl = (Integer) body.get("ttl_seconds");
-        Integer maxViews = (Integer) body.get("max_views");
+        Integer ttl = body.get("ttl_seconds") instanceof Number ? ((Number) body.get("ttl_seconds")).intValue() : null;
+        Integer maxViews = body.get("max_views") instanceof Number ? ((Number) body.get("max_views")).intValue() : null;
 
         if (content == null || content.isBlank()) {
             return ResponseEntity.badRequest().body(Map.of("error", "Invalid content"));
@@ -30,24 +31,26 @@ public class PasteApiController {
 
         Paste paste = service.create(content, ttl, maxViews);
 
+        String fullUrl = BASE_URL + "/p/" + paste.getId();
+
         return ResponseEntity.ok(Map.of(
                 "id", paste.getId(),
-                "url", "/p/" + paste.getId()
+                "url", fullUrl
         ));
     }
 
     @GetMapping("/{id}")
-    public Map<String, Object> fetch(@PathVariable String id, HttpServletRequest request) {
+    public ResponseEntity<?> fetch(@PathVariable String id, HttpServletRequest request) {
         Paste paste = service.fetch(id, request);
 
         Integer remainingViews = paste.getMaxViews() == null
                 ? null
                 : paste.getMaxViews() - paste.getViewCount();
 
-        return Map.of(
+        return ResponseEntity.ok(Map.of(
                 "content", paste.getContent(),
                 "remaining_views", remainingViews,
                 "expires_at", paste.getExpiresAt()
-        );
+        ));
     }
 }
